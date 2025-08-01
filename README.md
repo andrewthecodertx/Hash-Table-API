@@ -1,62 +1,69 @@
 # C Generic Hash Table
 
-This project is a C-based implementation of a generic hash table that uses open
-addressing with linear probing to resolve collisions. It is designed to be
-flexible and efficient, allowing for any data type to be used for keys and
-values, and it supports custom memory allocators.
+A generic, open-addressing hash table implementation in C designed for performance, low memory overhead, and flexibility.
+
+## The Challenge
+
+This project was created to address the "challenge" that C is a "terrible language" for creating efficient, reusable, and memory-optimized data structures compared to C++. The argument was that C lacks templates, modern allocators, and other abstractions that make this easy in C++.
+
+This implementation aims to demonstrate that while C requires a different approach, it is more than capable of producing a high-quality, generic hash table that meets these goals.
 
 ## Features
 
-* **Type-Generic:** By using `void*` pointers and function handlers, the hash
-table can store keys and values of any data type.
-* **Open Addressing:** Resolves hash collisions using linear probing, which can
-be efficient and cache-friendly.
-* **Dynamic Resizing:** Automatically grows the internal storage when the load
-factor exceeds a predefined threshold (`0.75`) to maintain performance.
-* **Custom Memory Management:** Users can provide their own `malloc` and `free`
-functions for custom memory allocation strategies.
-* **Simple and Clean API:** The public interface, defined in `hashtable.h`, is
-straightforward and easy to use.
+- **Generic Key/Value Types**: Supports any data type for keys and values by using `void*` and user-provided `type_handler` functions for hashing, comparison, copying, and destruction.
+- **Open Addressing**: Uses linear probing to resolve collisions, which is cache-friendly and avoids the overhead of linked list nodes used in chaining.
+- **Single Allocation for Entries**: The main table storage is a single contiguous block of memory, reducing allocation overhead and improving data locality.
+- **Custom Allocator Support**: Allows the user to provide their own memory allocation functions (`malloc`/`free` style) for integration with custom memory management schemes.
+- **Low Memory Overhead**: Uses a `control_bytes` array to store the state of each slot (Empty, Occupied, Deleted) using only **2 bits per entry**. This is significantly more memory-efficient than storing a full byte or more for metadata per entry.
+- **Drop-in Style API**: The API is designed to be straightforward and easy to integrate into existing C projects.
 
-## File Structure
+## How It Works
 
-* `hashtable.h`: The header file containing the public API for the hash table.
-* `hashtable.c`: The implementation file for the hash table.
-* `main.c`: An example program demonstrating how to use the hash table with a
-custom `user_key` and `user_value` type.
-* `Makefile`: A simple Makefile to build the project.
+The core of the implementation is the `HashTable` struct, which is an opaque type to the user. It stores:
+- Pointers to user-defined `type_handler` functions.
+- Pointers to custom `allocator` functions (or defaults to `malloc`/`free`).
+- The capacity, count, a pointer to the array of `InternalEntry` structs, and a pointer to the `control_bytes` array.
 
-## How to Build and Run
+### 2-Bit Bookkeeping
 
-To build the project, you can use the provided `Makefile`.
+To minimize memory overhead, the state of each slot is stored in a separate `control_bytes` array. Each byte in this array holds the state for four different slots, with each state encoded as follows:
+- `00` (STATE_EMPTY): The slot has never been used.
+- `01` (STATE_OCCUPIED): The slot holds a valid key-value pair.
+- `10` (STATE_DELETED): The slot previously held data but was deleted (a "tombstone").
+
+This approach reduces the bookkeeping cost to just 2 bits per entry, directly addressing one of the key memory optimization challenges.
+
+### Type Handlers
+
+To achieve genericity, the user must provide a `type_handler` struct, which contains function pointers for:
+- `hash`: To compute a `uint64_t` hash from a key.
+- `equal`: To check if two keys are equal.
+- `copy`: To create a deep copy of a key or value.
+- `destroy`: To free the memory of a key or value.
+
+This approach gives the user full control over how their data types are managed, which is essential in a language without constructors/destructors.
+
+### Memory Management
+
+The hash table can be configured to use a custom allocator. This is useful in scenarios where you want to use a memory pool, a slab allocator, or another specialized memory management strategy to improve performance.
+
+If no custom allocator is provided, it defaults to the standard library's `malloc` and `free`.
+
+## Building and Running the Demo
+
+A `Makefile` is provided to build the example program.
 
 ```bash
+# Build the demo
 make
-```
 
-This will compile the source files and create an executable named `hashtable_demo`.
-
-To run the demo program, execute the following command:
-
-```bash
+# Run the demo
 ./hashtable_demo
+
+# Clean up build files
+make clean
 ```
 
-The output will show the steps of creating a hash table, inserting, looking up,
-updating, and deleting key-value pairs.
+## Conclusion
 
-## API Overview
-
-The main functions provided by the hash table are:
-
-* `hash_table_create`: Creates a new hash table.
-* `hash_table_destroy`: Frees all memory associated with the hash table.
-* `hash_table_insert`: Inserts a new key-value pair or updates the value if the
-key already exists.
-* `hash_table_lookup`: Retrieves the value for a given key.
-* `hash_table_delete`: Removes a key-value pair from the table.
-* `hash_table_count`: Returns the number of items in the table.
-
-To use the hash table, you need to provide `type_handler` structs that contain
-function pointers for hashing, comparing, copying, and destroying your custom
-key and value types.
+While C++ provides powerful, high-level abstractions that make generic programming very convenient, this project demonstrates that C is perfectly capable of creating efficient, reusable, and memory-conscious data structures. The trade-off is that C requires more explicit, manual management of types and memory, but this also gives the programmer a great deal of control.
