@@ -2,52 +2,48 @@
 
 A generic, open-addressing hash table implementation in C designed for performance, low memory overhead, and flexibility.
 
-## The Challenge
+## The Goal
 
-This project was created to address the "challenge" that C is a "terrible language" for creating efficient, reusable, and memory-optimized data structures compared to C++. The argument was that C lacks templates, modern allocators, and other abstractions that make this easy in C++.
+Have you ever been told that some programming languages are just "better" than others for certain jobs? This project started as a response to the idea that C isn't well-suited for building high-performance, reusable, and memory-efficient data structures compared to more modern languages like C++.
 
-This implementation aims to demonstrate that while C requires a different approach, it is more than capable of producing a high-quality, generic hash table that meets these goals.
+This hash table is designed to show that with a bit of cleverness, C can be used to create code that is not only fast and efficient but also flexible and easy to reuse.
 
 ## Features
 
-- **Generic Key/Value Types**: Supports any data type for keys and values by using `void*` and user-provided `type_handler` functions for hashing, comparison, copying, and destruction.
-- **Open Addressing**: Uses linear probing to resolve collisions, which is cache-friendly and avoids the overhead of linked list nodes used in chaining.
-- **Single Allocation for Entries**: The main table storage is a single contiguous block of memory, reducing allocation overhead and improving data locality.
-- **Custom Allocator Support**: Allows the user to provide their own memory allocation functions (`malloc`/`free` style) for integration with custom memory management schemes.
-- **Low Memory Overhead**: Uses a `control_bytes` array to store the state of each slot (Empty, Occupied, Deleted) using only **2 bits per entry**. This is significantly more memory-efficient than storing a full byte or more for metadata per entry.
-- **Drop-in Style API**: The API is designed to be straightforward and easy to integrate into existing C projects.
+- **Works with Any Data Type**: You can use this hash table to store any kind of data, from simple numbers to complex custom structures.
+- **Fast and Efficient**: It uses a technique called "open addressing" to store data in a way that's quick to access and friendly to your computer's memory.
+- **Smart Memory Use**: The hash table stores all its data in a single, organized block of memory, which reduces clutter and improves performance.
+- **Use Your Own Memory Manager**: If you have a special way of managing memory in your project, you can plug it right in.
+- **Extremely Low Memory Overhead**: It uses a clever trick to keep track of data using only 2 bits of memory per entry, saving a significant amount of space.
+- **Easy to Use**: The API is designed to be simple and straightforward, so you can get up and running quickly.
 
 ## How It Works
 
-The core of the implementation is the `HashTable` struct, which is an opaque type to the user. It stores:
-- Pointers to user-defined `type_handler` functions.
-- Pointers to custom `allocator` functions (or defaults to `malloc`/`free`).
-- The capacity, count, a pointer to the array of `InternalEntry` structs, and a pointer to the `control_bytes` array.
+The hash table is designed to be a black box for the user. You interact with it through a simple API, and it handles all the complex details internally.
 
-### 2-Bit Bookkeeping
+### The Hotel Analogy: 2-Bit Bookkeeping
 
-To minimize memory overhead, the state of each slot is stored in a separate `control_bytes` array. Each byte in this array holds the state for four different slots, with each state encoded as follows:
-- `00` (STATE_EMPTY): The slot has never been used.
-- `01` (STATE_OCCUPIED): The slot holds a valid key-value pair.
-- `10` (STATE_DELETED): The slot previously held data but was deleted (a "tombstone").
+To save memory, we use a clever trick to keep track of the status of each slot in the hash table. Think of it like a hotel with a very efficient receptionist. Instead of using a big, clunky notebook to track room status, the receptionist uses a compact system where each room's status (Empty, Occupied, or Needs Cleaning) is represented by a tiny 2-bit code.
 
-This approach reduces the bookkeeping cost to just 2 bits per entry, directly addressing one of the key memory optimization challenges.
+- `00` (Empty): The room is available.
+- `01` (Occupied): The room has a guest.
+- `10` (Needs Cleaning): The room was used but is now empty (this tells us we can clean it and make it available again).
 
-### Type Handlers
+This method is incredibly space-efficient, allowing us to manage the hash table with minimal memory overhead.
 
-To achieve genericity, the user must provide a `type_handler` struct, which contains function pointers for:
-- `hash`: To compute a `uint64_t` hash from a key.
-- `equal`: To check if two keys are equal.
-- `copy`: To create a deep copy of a key or value.
-- `destroy`: To free the memory of a key or value.
+### Handling Different Data Types
 
-This approach gives the user full control over how their data types are managed, which is essential in a language without constructors/destructors.
+To make the hash table work with any data type, you provide a set of simple instructions, called "type handlers." These handlers tell the hash table how to perform basic operations on your data, such as:
+- **Hashing**: Creating a unique identifier for a key.
+- **Comparing**: Checking if two keys are the same.
+- **Copying**: Making a copy of a key or value.
+- **Deleting**: Freeing up the memory used by a key or value.
 
-### Memory Management
+This approach gives you full control over your data while keeping the hash table's design clean and flexible.
 
-The hash table can be configured to use a custom allocator. This is useful in scenarios where you want to use a memory pool, a slab allocator, or another specialized memory management strategy to improve performance.
+### Custom Memory Management
 
-If no custom allocator is provided, it defaults to the standard library's `malloc` and `free`.
+For projects with special memory requirements, you can provide your own memory management functions. This is like telling our hotel to use a specific supplier for its resources, giving you more control over how memory is allocated and freed. If you don't provide a custom memory manager, it will use the standard C library functions.
 
 ## Building and Running the Demo
 
@@ -66,4 +62,4 @@ make clean
 
 ## Conclusion
 
-While C++ provides powerful, high-level abstractions that make generic programming very convenient, this project demonstrates that C is perfectly capable of creating efficient, reusable, and memory-conscious data structures. The trade-off is that C requires more explicit, manual management of types and memory, but this also gives the programmer a great deal of control.
+This project shows that C, while a classic language, is more than capable of creating high-quality, modern data structures. It may require a bit more hands-on work, but the result is a hash table that is fast, memory-efficient, and highly flexible, proving that good engineering can make all the difference.
