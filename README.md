@@ -2,12 +2,6 @@
 
 A generic, open-addressing hash table implementation in C designed for performance, low memory overhead, and flexibility.
 
-## The Goal
-
-Have you ever been told that some programming languages are just "better" than others for certain jobs? This project started as a response to the idea that C isn't well-suited for building high-performance, reusable, and memory-efficient data structures compared to more modern languages like C++.
-
-This hash table is designed to show that with a bit of cleverness, C can be used to create code that is not only fast and efficient but also flexible and easy to reuse.
-
 ## Features
 
 - **Works with Any Data Type**: You can use this hash table to store any kind of data, from simple numbers to complex custom structures.
@@ -23,13 +17,13 @@ The hash table is designed to be a black box for the user. You interact with it 
 
 ### The Hotel Analogy: 2-Bit Bookkeeping
 
-To save memory, we use a clever trick to keep track of the status of each slot in the hash table. Think of it like a hotel with a very efficient receptionist. Instead of using a big, clunky notebook to track room status, the receptionist uses a compact system where each room's status (Empty, Occupied, or Needs Cleaning) is represented by a tiny 2-bit code.
+To save memory, we use a trick to keep track of the status of each slot in the hash table. (Empty, Occupied, or Needs Cleaning) is represented by a tiny 2-bit code.
 
-- `00` (Empty): The room is available.
-- `01` (Occupied): The room has a guest.
-- `10` (Needs Cleaning): The room was used but is now empty (this tells us we can clean it and make it available again).
+- `00` (Empty): available.
+- `01` (Occupied): the bit is filled.
+- `10` (Needs Cleaning): was filled but is now empty.
 
-This method is incredibly space-efficient, allowing us to manage the hash table with minimal memory overhead.
+This method is space-efficient, allowing us to manage the hash table with minimal memory overhead.
 
 ### Handling Different Data Types
 
@@ -59,7 +53,3 @@ make
 # Clean up build files
 make clean
 ```
-
-## Conclusion
-
-This project shows that C, while a classic language, is more than capable of creating high-quality, modern data structures. It may require a bit more hands-on work, but the result is a hash table that is fast, memory-efficient, and highly flexible, proving that good engineering can make all the difference.
