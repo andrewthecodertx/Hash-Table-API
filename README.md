@@ -53,3 +53,7 @@ make
 # Clean up build files
 make clean
 ```
+
+## License
+
+MIT, see [LICENSE](LICENSE).
