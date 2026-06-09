@@ -1,12 +1,12 @@
 # C Generic Hash Table
 
-A generic, open-addressing hash table in C. Stores any key and value type -- you provide the type handlers, it handles the rest.
+A generic, open-addressing hash table in C. Stores any key and value type - you provide the type handlers, it handles the rest.
 
 ## Why use this
 
-Most C hash table libraries lock you into one key type (usually strings). This one doesn't. You define how your keys are hashed, compared, copied, and freed -- so you can use composite keys, struct keys, or anything else C lets you point at.
+Most C hash table libraries lock you into one key type (usually strings). This one doesn't. You define how your keys are hashed, compared, copied, and freed - so you can use composite keys, struct keys, or anything else C lets you point at.
 
-The 2-bit control scheme (empty/occupied/deleted) means just 2 bits of overhead per slot instead of a full byte or a separate flags array. Open addressing keeps everything in one contiguous block of memory -- better cache locality than chained tables.
+The 2-bit control scheme (empty/occupied/deleted) means just 2 bits of overhead per slot instead of a full byte or a separate flags array. Open addressing keeps everything in one contiguous block of memory - better cache locality than chained tables.
 
 Custom allocators let you plug in arena allocators, pool allocators, or whatever your project needs. If you don't care, pass `NULL` and it uses `malloc`/`free`.
 
@@ -23,7 +23,7 @@ size_t     hash_table_count(const HashTable *table);
 
 `insert` returns `true` on success. Inserting a key that already exists replaces the value (and frees the old one). `lookup` returns a pointer to the value, or `NULL` if the key isn't found.
 
-## Quick example -- string keys, int values
+## Quick example - string keys, int values
 
 ```c
 #include "hashtable.h"
@@ -31,7 +31,7 @@ size_t     hash_table_count(const HashTable *table);
 #include <stdlib.h>
 #include <string.h>
 
-// -- key handlers (C strings) --
+// - key handlers (C strings) -
 
 uint64_t hash_string(const void *key) {
     uint64_t h = 5381;
@@ -50,7 +50,7 @@ void *copy_string(const void *src) {
 
 void free_string(void *p) { free(p); }
 
-// -- value handlers (heap-allocated ints) --
+// - value handlers (heap-allocated ints) -
 
 void *copy_int(const void *src) {
     int *copy = malloc(sizeof(int));
@@ -92,7 +92,7 @@ int main(void) {
 }
 ```
 
-## Struct keys -- composite lookups
+## Struct keys - composite lookups
 
 The real point of this library is using something other than a string as a key. Here's a 2-field struct key:
 
@@ -163,10 +163,10 @@ Pass `NULL` to use the default (`malloc`/`free`).
 
 ## How it works
 
-- **Open addressing** with linear probing -- colliding entries go in the next slot
-- **2-bit control bytes** -- each slot is marked empty (`00`), occupied (`01`), or deleted/tombstone (`10`). That's 2 bits per entry instead of a full byte
-- **Auto-resize** -- doubles capacity when load factor exceeds 0.75, rehashes all live entries into the new table
-- **Tombstone reuse** -- deleted slots are marked for reuse; inserts can fill them, lookups skip over them
+- **Open addressing** with linear probing - colliding entries go in the next slot
+- **2-bit control bytes** - each slot is marked empty (`00`), occupied (`01`), or deleted/tombstone (`10`). That's 2 bits per entry instead of a full byte
+- **Auto-resize** - doubles capacity when load factor exceeds 0.75, rehashes all live entries into the new table
+- **Tombstone reuse** - deleted slots are marked for reuse; inserts can fill them, lookups skip over them
 
 ## Building and running
 
@@ -181,3 +181,4 @@ The demo in `main.c` exercises insert, lookup, update, and delete with struct ke
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
