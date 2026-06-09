@@ -1,58 +1,182 @@
 # C Generic Hash Table
 
-A generic, open-addressing hash table implementation in C designed for performance, low memory overhead, and flexibility.
+A generic, open-addressing hash table in C. Stores any key and value type — you provide the type handlers, it handles the rest.
 
-## Features
+## Why use this
 
-- **Works with Any Data Type**: You can use this hash table to store any kind of data, from simple numbers to complex custom structures.
-- **Fast and Efficient**: It uses a technique called "open addressing" to store data in a way that's quick to access and friendly to your computer's memory.
-- **Smart Memory Use**: The hash table stores all its data in a single, organized block of memory, which reduces clutter and improves performance.
-- **Use Your Own Memory Manager**: If you have a special way of managing memory in your project, you can plug it right in.
-- **Extremely Low Memory Overhead**: It uses a clever trick to keep track of data using only 2 bits of memory per entry, saving a significant amount of space.
-- **Easy to Use**: The API is designed to be simple and straightforward, so you can get up and running quickly.
+Most C hash table libraries lock you into one key type (usually strings). This one doesn't. You define how your keys are hashed, compared, copied, and freed — so you can use composite keys, struct keys, or anything else C lets you point at.
 
-## How It Works
+The 2-bit control scheme (empty/occupied/deleted) means just 2 bits of overhead per slot instead of a full byte or a separate flags array. Open addressing keeps everything in one contiguous block of memory — better cache locality than chained tables.
 
-The hash table is designed to be a black box for the user. You interact with it through a simple API, and it handles all the complex details internally.
+Custom allocators let you plug in arena allocators, pool allocators, or whatever your project needs. If you don't care, pass `NULL` and it uses `malloc`/`free`.
 
-### The Hotel Analogy: 2-Bit Bookkeeping
+## API
 
-To save memory, we use a trick to keep track of the status of each slot in the hash table. (Empty, Occupied, or Needs Cleaning) is represented by a tiny 2-bit code.
+```c
+HashTable *hash_table_create(type_handler key_handler, type_handler value_handler, allocator *custom_allocator);
+void       hash_table_destroy(HashTable *table);
+bool       hash_table_insert(HashTable *table, void *key, void *value);
+void      *hash_table_lookup(const HashTable *table, const void *key);
+bool       hash_table_delete(HashTable *table, const void *key);
+size_t     hash_table_count(const HashTable *table);
+```
 
-- `00` (Empty): available.
-- `01` (Occupied): the bit is filled.
-- `10` (Needs Cleaning): was filled but is now empty.
+`insert` returns `true` on success. Inserting a key that already exists replaces the value (and frees the old one). `lookup` returns a pointer to the value, or `NULL` if the key isn't found.
 
-This method is space-efficient, allowing us to manage the hash table with minimal memory overhead.
+## Quick example — string keys, int values
 
-### Handling Different Data Types
+```c
+#include "hashtable.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-To make the hash table work with any data type, you provide a set of simple instructions, called "type handlers." These handlers tell the hash table how to perform basic operations on your data, such as:
-- **Hashing**: Creating a unique identifier for a key.
-- **Comparing**: Checking if two keys are the same.
-- **Copying**: Making a copy of a key or value.
-- **Deleting**: Freeing up the memory used by a key or value.
+// -- key handlers (C strings) --
 
-This approach gives you full control over your data while keeping the hash table's design clean and flexible.
+uint64_t hash_string(const void *key) {
+    uint64_t h = 5381;
+    for (const char *p = (const char *)key; *p; p++)
+        h = h * 33 ^ *p;
+    return h;
+}
 
-### Custom Memory Management
+bool eq_string(const void *a, const void *b) {
+    return strcmp((const char *)a, (const char *)b) == 0;
+}
 
-For projects with special memory requirements, you can provide your own memory management functions. This is like telling our hotel to use a specific supplier for its resources, giving you more control over how memory is allocated and freed. If you don't provide a custom memory manager, it will use the standard C library functions.
+void *copy_string(const void *src) {
+    return strdup((const char *)src);
+}
 
-## Building and Running the Demo
+void free_string(void *p) { free(p); }
 
-A `Makefile` is provided to build the example program.
+// -- value handlers (heap-allocated ints) --
+
+void *copy_int(const void *src) {
+    int *copy = malloc(sizeof(int));
+    if (copy) *copy = *(const int *)src;
+    return copy;
+}
+
+void free_int(void *p) { free(p); }
+
+int main(void) {
+    type_handler key_h   = { .copy = copy_string, .destroy = free_string,
+                             .equal = eq_string, .hash = hash_string };
+    type_handler value_h = { .copy = copy_int,    .destroy = free_int };
+
+    HashTable *ht = hash_table_create(key_h, value_h, NULL);
+
+    // insert
+    int age = 30;
+    hash_table_insert(ht, "alice", &age);
+    age = 25;
+    hash_table_insert(ht, "bob", &age);
+
+    // lookup
+    int *result = hash_table_lookup(ht, "alice");
+    if (result) printf("alice is %d\n", *result);  // alice is 30
+
+    // update (inserting existing key replaces value)
+    age = 31;
+    hash_table_insert(ht, "alice", &age);
+    result = hash_table_lookup(ht, "alice");
+    if (result) printf("alice is now %d\n", *result);  // alice is now 31
+
+    // delete
+    hash_table_delete(ht, "bob");
+    printf("count: %zu\n", hash_table_count(ht));  // count: 1
+
+    hash_table_destroy(ht);
+    return 0;
+}
+```
+
+## Struct keys — composite lookups
+
+The real point of this library is using something other than a string as a key. Here's a 2-field struct key:
+
+```c
+typedef struct { int id; char name[32]; } user_key;
+typedef struct { double score; } user_value;
+
+uint64_t hash_user_key(const void *key) {
+    const user_key *uk = key;
+    uint64_t h = 5381;
+    h = h * 33 ^ uk->id;
+    for (const char *p = uk->name; *p; p++)
+        h = h * 33 ^ *p;
+    return h;
+}
+
+bool eq_user_key(const void *a, const void *b) {
+    const user_key *ka = a, *kb = b;
+    return ka->id == kb->id && strcmp(ka->name, kb->name) == 0;
+}
+
+void *copy_user_key(const void *src) {
+    user_key *copy = malloc(sizeof(user_key));
+    if (copy) memcpy(copy, src, sizeof(user_key));
+    return copy;
+}
+
+void *copy_user_value(const void *src) {
+    user_value *copy = malloc(sizeof(user_value));
+    if (copy) memcpy(copy, src, sizeof(user_value));
+    return copy;
+}
+
+void destroy_data(void *p) { free(p); }
+
+int main(void) {
+    type_handler key_h   = { .copy = copy_user_key,   .destroy = destroy_data,
+                             .equal = eq_user_key,    .hash = hash_user_key };
+    type_handler value_h = { .copy = copy_user_value, .destroy = destroy_data };
+
+    HashTable *ht = hash_table_create(key_h, value_h, NULL);
+
+    user_key k = { .id = 42 };
+    strncpy(k.name, "alice", sizeof(k.name));
+    user_value v = { .score = 97.5 };
+    hash_table_insert(ht, &k, &v);
+
+    user_key lookup = { .id = 42 };
+    strncpy(lookup.name, "alice", sizeof(lookup.name));
+    user_value *found = hash_table_lookup(ht, &lookup);
+    if (found) printf("score: %.1f\n", found->score);  // score: 97.5
+
+    hash_table_destroy(ht);
+    return 0;
+}
+```
+
+## Custom allocator
+
+Pass an `allocator` to `hash_table_create` if you want control over memory:
+
+```c
+allocator my_alloc = { .alloc = my_alloc_fn, .free = my_free_fn };
+HashTable *ht = hash_table_create(key_h, value_h, &my_alloc);
+```
+
+Pass `NULL` to use the default (`malloc`/`free`).
+
+## How it works
+
+- **Open addressing** with linear probing — colliding entries go in the next slot
+- **2-bit control bytes** — each slot is marked empty (`00`), occupied (`01`), or deleted/tombstone (`10`). That's 2 bits per entry instead of a full byte
+- **Auto-resize** — doubles capacity when load factor exceeds 0.75, rehashes all live entries into the new table
+- **Tombstone reuse** — deleted slots are marked for reuse; inserts can fill them, lookups skip over them
+
+## Building and running
 
 ```bash
-# Build the demo
-make
-
-# Run the demo
+make            # build the demo
 ./hashtable_demo
-
-# Clean up build files
 make clean
 ```
+
+The demo in `main.c` exercises insert, lookup, update, and delete with struct keys.
 
 ## License
 
